@@ -96,47 +96,54 @@ def build(M=128, K=128, N=128):
                     pto.slice_view(tile_view_a, source=tvA, offsets=[b_idx, c0, c0], sizes=[c1, cM, cK]),
                     pto.slice_view(tile_view_a, source=tvA, offsets=[b_idx+c1, c0, c0], sizes=[c1, cM, cK])
                 ]
-
                 svC = [
                     pto.slice_view(tile_view_c, source=tvC, offsets=[b_idx, c0, c0], sizes=[c1, cM, cN]),
                     pto.slice_view(tile_view_c, source=tvC, offsets=[b_idx+c1, c0, c0], sizes=[c1, cM, cN])
                 ]
 
+                ########## Load tile A1 and A2 from GM -> L1
                 pto.wait_event("MOV_M2L", "LOAD", event_id=0)
                 pto.load(svA[0], aMatTiles[0])
+                pto.record_event("LOAD", "MOV_M2L", event_id=0)
 
-                pto.record_wait_pair("LOAD", "MOV_M2L", event_id=0)
-                pto.wait_event("MATMUL", "MOV_M2l", event_id=0)
-                pto.mov(aMatTiles[0], aTiles[0])
-
-                pto.record_event("MOV_M2L", "LOAD", event_id=0)
-                pto.record_wait_pair("MOV_M2L", "MATMUL", event_id=0)
-                pto.wait_event("STORE_ACC", "MATMUL", event_id=0)
-                pto.matmul(aTiles[0], bTile, cTiles[0])
-
-                pto.record_wait_pair("MATMUL", "STORE_ACC", event_id=0)
-                pto.record_event("MATMUL", "MOV_M2L", event_id=0)
-                pto.store(cTiles[0], svC[0])
-
-                pto.record_event("STORE_ACC", "MATMUL", event_id=0)
-
-                # ------------------
                 pto.wait_event("MOV_M2L", "LOAD", event_id=1)
                 pto.load(svA[1], aMatTiles[1])
+                pto.record_event("LOAD", "MOV_M2L", event_id=1)
 
-                pto.record_wait_pair("LOAD", "MOV_M2L", event_id=1)
+
+                ########## Move A1 and A2 into L0A
+                pto.wait_event("LOAD", "MOV_M2L", event_id=0)
+                pto.wait_event("MATMUL", "MOV_M2l", event_id=0)
+                pto.mov(aMatTiles[0], aTiles[0])
+                pto.record_event("MOV_M2L", "LOAD", event_id=0)
+                pto.record_event("MOV_M2L", "MATMUL", event_id=0)
+
+                pto.wait_event("LOAD", "MOV_M2L", event_id=1)
                 pto.wait_event("MATMUL", "MOV_M2l", event_id=1)
                 pto.mov(aMatTiles[1], aTiles[1])
-
                 pto.record_event("MOV_M2L", "LOAD", event_id=1)
-                pto.record_wait_pair("MOV_M2L", "MATMUL", event_id=1)
+                pto.record_event("MOV_M2L", "MATMUL", event_id=1)
+
+                ########## Perform matmul
+                pto.wait_event("MOV_M2L", "MATMUL", event_id=0)
+                pto.wait_event("STORE_ACC", "MATMUL", event_id=0)
+                pto.matmul(aTiles[0], bTile, cTiles[0])
+                pto.record_event("MATMUL", "STORE_ACC", event_id=0)
+                pto.record_event("MATMUL", "MOV_M2L", event_id=0)
+
+                pto.wait_event("MOV_M2L", "MATMUL", event_id=1)
                 pto.wait_event("STORE_ACC", "MATMUL", event_id=1)
                 pto.matmul(aTiles[1], bTile, cTiles[1])
-
-                pto.record_wait_pair("MATMUL", "STORE_ACC", event_id=1)
+                pto.record_event("MATMUL", "STORE_ACC", event_id=1)
                 pto.record_event("MATMUL", "MOV_M2L", event_id=1)
-                pto.store(cTiles[1], svC[1])
 
+                ######### Store
+                pto.wait_event("MATMUL", "STORE_ACC", event_id=0)
+                pto.store(cTiles[0], svC[0])
+                pto.record_event("STORE_ACC", "MATMUL", event_id=0)
+
+                pto.wait_event("MATMUL", "STORE_ACC", event_id=1)
+                pto.store(cTiles[1], svC[1])
                 pto.record_event("STORE_ACC", "MATMUL", event_id=1)
 
 

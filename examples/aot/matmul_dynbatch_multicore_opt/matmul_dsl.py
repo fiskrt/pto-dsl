@@ -17,7 +17,7 @@ def build(M=128, K=128, N=128):
 
         tile_view_a = pto.SubTensorType(shape=[M, K], dtype=dtype)
         tile_view_b = pto.SubTensorType(shape=[K, N], dtype=dtype)
-        tile_view_out = pto.SubTensorType(shape=[M, N], dtype=dtype)
+        tile_view_c = pto.SubTensorType(shape=[M, N], dtype=dtype)
         tile_buf_aMat = pto.TileBufType(shape=[M, K], dtype=dtype, memory_space="MAT")
         tile_buf_bMat = pto.TileBufType(shape=[K, N], dtype=dtype, memory_space="MAT")
         tile_buf_aTile = pto.TileBufType(shape=[M, K], dtype=dtype, memory_space="LEFT")
@@ -32,7 +32,7 @@ def build(M=128, K=128, N=128):
             "tensor_type3d": tensor_type3d,
             "tile_view_a": tile_view_a,
             "tile_view_b": tile_view_b,
-            "tile_view_out": tile_view_out,
+            "tile_view_c": tile_view_c,
             "tile_buf_aMat": tile_buf_aMat,
             "tile_buf_bMat": tile_buf_bMat,
             "tile_buf_aTile": tile_buf_aTile,
@@ -54,6 +54,7 @@ def build(M=128, K=128, N=128):
         with pto.cube_section():
             c0 = const(0)
             c1 = const(1)
+            c2 = const(2)
             cM = const(M)
             cK = const(K)
             cN = const(N)
@@ -67,14 +68,16 @@ def build(M=128, K=128, N=128):
             b_end = pto.min_u(b_end_unclamped, batch)
 
             tvA = pto.as_tensor(tensor_type3d, ptr=a_ptr, shape=[batch, cM, cK], strides=[cK*cM, cK, c1])
+            tvC = pto.as_tensor(tensor_type3d, ptr=out_ptr, shape=[batch, cM, cN], strides=[cM*cN, cN, c1])
             tvB = pto.as_tensor(tensor_type, ptr=b_ptr, shape=[cK, cN], strides=[cN, c1])
-            tvOut = pto.as_tensor(tensor_type3d, ptr=out_ptr, shape=[batch, cM, cN], strides=[cM*cN, cN, c1])
 
-            aMatTile = pto.alloc_tile(tile_buf_aMat)
+            # TODO: pre-fetch more than two tiles into L1
+            aMatTiles = [pto.alloc_tile(tile_buf_aMat), pto.alloc_tile(tile_buf_aMat)]
             bMatTile = pto.alloc_tile(tile_buf_bMat)
-            aTile = pto.alloc_tile(tile_buf_aTile)
+            # Ping and pong buffers in L0A/C
+            aTiles = [pto.alloc_tile(tile_buf_aTile), pto.alloc_tile(tile_buf_aTile)]
+            cTiles = [pto.alloc_tile(tile_buf_cTile), pto.alloc_tile(tile_buf_cTile)]
             bTile = pto.alloc_tile(tile_buf_bTile)
-            cTile = pto.alloc_tile(tile_buf_cTile)
             # Put B in L0B
             svB = pto.slice_view(tile_view_b, source=tvB, offsets=[c0, c0], sizes=[cK, cN])
             pto.load(svB, bMatTile)
@@ -82,47 +85,60 @@ def build(M=128, K=128, N=128):
             pto.mov(bMatTile, bTile)
 
             # signal to LOAD that L1 can be overwritten
-            pto.record_event("MOV_M2L", "LOAD", event_id=0)
+            pto.record_event("MOV_M2L", "LOAD", event_id=[0, 1])
             # signal to MOV that L0 can be overwritten
-            pto.record_event("MATMUL", "MOV_M2L", event_id=0)
+            pto.record_event("MATMUL", "MOV_M2L", event_id=[0, 1])
             # signal to MATMUL that it can overwrite L0C
-            pto.record_event("STORE_ACC", "MATMUL", event_id=0)
-            for b_idx in pto.for_range(b_start, b_end, c1):
-
+            pto.record_event("STORE_ACC", "MATMUL", event_id=[0, 1])
+            for b_idx in pto.for_range(b_start, b_end, c2):
                 svA = pto.slice_view(tile_view_a, source=tvA, offsets=[b_idx, c0, c0], sizes=[c1, cM, cK])
-                svOut = pto.slice_view(tile_view_out, source=tvOut, offsets=[b_idx, c0, c0], sizes=[c1, cM, cN])
+                svC = pto.slice_view(tile_view_c, source=tvC, offsets=[b_idx, c0, c0], sizes=[c1, cM, cN])
 
                 pto.wait_event("MOV_M2L", "LOAD", event_id=0)
-                pto.load(svA, aMatTile)
+                pto.load(svA, aMatTiles[0])
 
-                # Before moving data from L1 into L0 we must know
-                # 1) The load has finished
-                # 2) the L0 can be overwritten
                 pto.record_wait_pair("LOAD", "MOV_M2L", event_id=0)
                 pto.wait_event("MATMUL", "MOV_M2l", event_id=0)
+                pto.mov(aMatTiles[0], aTiles[0])
 
-                pto.mov(aMatTile, aTile)
-                # signal to LOAD that L1 can be overwritten
                 pto.record_event("MOV_M2L", "LOAD", event_id=0)
-
-                # Moves into L0 must finish before we do the matmul
                 pto.record_wait_pair("MOV_M2L", "MATMUL", event_id=0)
-                # L0C must be ready to be overwritten
                 pto.wait_event("STORE_ACC", "MATMUL", event_id=0)
-                pto.matmul(aTile, bTile, cTile)
+                pto.matmul(aTiles[0], bTile, cTiles[0])
 
-                # matmul must be completed before we do store
                 pto.record_wait_pair("MATMUL", "STORE_ACC", event_id=0)
-                # also signal to MOV that L0A/B can be overwritten again
                 pto.record_event("MATMUL", "MOV_M2L", event_id=0)
-                pto.store(cTile, svOut)
+                pto.store(cTiles[0], svC)
 
-                # signal to MATMUL that it can overwrite L0C
                 pto.record_event("STORE_ACC", "MATMUL", event_id=0)
 
-            pto.wait_event("MOV_M2L", "LOAD", event_id=0)
-            pto.wait_event("MATMUL", "MOV_M2L", event_id=0)
-            pto.wait_event("STORE_ACC", "MATMUL", event_id=0)
+                # ------------------
+                svA = pto.slice_view(tile_view_a, source=tvA, offsets=[b_idx+c1, c0, c0], sizes=[c1, cM, cK])
+                svC = pto.slice_view(tile_view_c, source=tvC, offsets=[b_idx+c1, c0, c0], sizes=[c1, cM, cN])
+
+                pto.wait_event("MOV_M2L", "LOAD", event_id=1)
+                pto.load(svA, aMatTiles[1])
+
+                pto.record_wait_pair("LOAD", "MOV_M2L", event_id=1)
+                pto.wait_event("MATMUL", "MOV_M2l", event_id=1)
+                pto.mov(aMatTiles[1], aTiles[1])
+
+                pto.record_event("MOV_M2L", "LOAD", event_id=1)
+                pto.record_wait_pair("MOV_M2L", "MATMUL", event_id=1)
+                pto.wait_event("STORE_ACC", "MATMUL", event_id=1)
+                pto.matmul(aTiles[1], bTile, cTiles[1])
+
+                pto.record_wait_pair("MATMUL", "STORE_ACC", event_id=1)
+                pto.record_event("MATMUL", "MOV_M2L", event_id=1)
+                pto.store(cTiles[1], svC)
+
+                pto.record_event("STORE_ACC", "MATMUL", event_id=1)
+
+
+            # if batches not even, then these wait events might wait forever cuz they haven't been set
+            pto.wait_event("MOV_M2L", "LOAD", event_id=[0, 1])
+            pto.wait_event("MATMUL", "MOV_M2L", event_id=[0, 1])
+            pto.wait_event("STORE_ACC", "MATMUL", event_id=[0, 1])
 
     return RunTMATMULSplitK
 

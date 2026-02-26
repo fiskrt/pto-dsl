@@ -72,17 +72,20 @@ def build(M=128, K=128, N=128):
             tvB = pto.as_tensor(tensor_type, ptr=b_ptr, shape=[cK, cN], strides=[cN, c1])
 
             # TODO: pre-fetch more than two tiles into L1
-            aMatTiles = [pto.alloc_tile(tile_buf_aMat), pto.alloc_tile(tile_buf_aMat)]
+            NUM_BUFFERS = 2
+            aMatTiles = [pto.alloc_tile(tile_buf_aMat) for _ in range(NUM_BUFFERS)]
             bMatTile = pto.alloc_tile(tile_buf_bMat)
             # Ping and pong buffers in L0A/C
-            aTiles = [pto.alloc_tile(tile_buf_aTile), pto.alloc_tile(tile_buf_aTile)]
-            cTiles = [pto.alloc_tile(tile_buf_cTile), pto.alloc_tile(tile_buf_cTile)]
+            aTiles = [pto.alloc_tile(tile_buf_aTile) for _ in range(NUM_BUFFERS)]
+            cTiles = [pto.alloc_tile(tile_buf_cTile) for _ in range(NUM_BUFFERS)]
             bTile = pto.alloc_tile(tile_buf_bTile)
+
             # Put B in L0B
             svB = pto.slice_view(tile_view_b, source=tvB, offsets=[c0, c0], sizes=[cK, cN])
             pto.load(svB, bMatTile)
             pto.record_wait_pair("LOAD", "MOV_M2L", event_id=0)
             pto.mov(bMatTile, bTile)
+            # TODO: wait here so we can use full l1 memory later for A/C.
 
             # signal to LOAD that L1 can be overwritten
             pto.record_event("MOV_M2L", "LOAD", event_id=[0, 1])
@@ -113,13 +116,13 @@ def build(M=128, K=128, N=128):
 
                 ########## Move A1 and A2 into L0A
                 pto.wait_event("LOAD", "MOV_M2L", event_id=0)
-                pto.wait_event("MATMUL", "MOV_M2l", event_id=0)
+                pto.wait_event("MATMUL", "MOV_M2L", event_id=0)
                 pto.mov(aMatTiles[0], aTiles[0])
                 pto.record_event("MOV_M2L", "LOAD", event_id=0)
                 pto.record_event("MOV_M2L", "MATMUL", event_id=0)
 
                 pto.wait_event("LOAD", "MOV_M2L", event_id=1)
-                pto.wait_event("MATMUL", "MOV_M2l", event_id=1)
+                pto.wait_event("MATMUL", "MOV_M2L", event_id=1)
                 pto.mov(aMatTiles[1], aTiles[1])
                 pto.record_event("MOV_M2L", "LOAD", event_id=1)
                 pto.record_event("MOV_M2L", "MATMUL", event_id=1)

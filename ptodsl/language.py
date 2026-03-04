@@ -51,6 +51,9 @@ class Value:
     def __rmod__(self, other):
         return Value(arith.RemSIOp(_unwrap(other), _unwrap(self)).result)
 
+    def __mod__(self, other):
+        return Value(arith.RemUIOp(_unwrap(self), _unwrap(other)).result)
+
     @staticmethod
     def _cmp(lhs, rhs, predicate):
         return Value(arith.CmpIOp(predicate, _unwrap(lhs), _unwrap(rhs)).result)
@@ -66,6 +69,9 @@ class Value:
 
     def __ge__(self, other):
         return Value._cmp(self, other, arith.CmpIPredicate.sge)
+    
+    def __eq__(self, other):
+        return Value._cmp(self, other, arith.CmpIPredicate.eq)
 
     def __eq__(self, other):
         return Value._cmp(self, other, arith.CmpIPredicate.eq)
@@ -388,12 +394,21 @@ def _resolve_event_id(event_id):
     return event_id
 
 
-def record_event(record_op, wait_op, event_id=0):
-    pto.record_event(_resolve_sync_op(record_op), _resolve_sync_op(wait_op), _resolve_event_id(event_id))
+def record_event(record_op, wait_op, event_id: int|list[int]=0):
+    if isinstance(event_id, list):
+        for eid in event_id:
+            pto.record_event(_resolve_sync_op(record_op), _resolve_sync_op(wait_op), _resolve_event_id(eid))
+    else:
+        pto.record_event(_resolve_sync_op(record_op), _resolve_sync_op(wait_op), _resolve_event_id(event_id))
 
 
-def wait_event(record_op, wait_op, event_id=0):
-    pto.wait_event(_resolve_sync_op(record_op), _resolve_sync_op(wait_op), _resolve_event_id(event_id))
+
+def wait_event(record_op, wait_op, event_id: int|list[int]=0):
+    if isinstance(event_id, list):
+        for eid in event_id:
+            pto.wait_event(_resolve_sync_op(record_op), _resolve_sync_op(wait_op), _resolve_event_id(eid))
+    else:
+        pto.wait_event(_resolve_sync_op(record_op), _resolve_sync_op(wait_op), _resolve_event_id(event_id))
 
 
 def record_wait_pair(record_op, wait_op, event_id=0):

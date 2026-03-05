@@ -231,6 +231,11 @@ def alloc_tile(tile_type, *, valid_row=None, valid_col=None):
     return pto.AllocTileOp(tile_type, **kwargs).result
 
 
+def subset(source, offsets, sizes):
+    offset_vals = [_unwrap(v) for v in offsets]
+    return pto.subset(source, offset_vals, sizes)
+
+
 def load(source, dest):
     pto.TLoadOp(None, source, dest)
 
@@ -415,3 +420,7 @@ def record_wait_pair(record_op, wait_op, event_id: int|Sequence[int]=0):
     ev = _resolve_event_id(event_id)
     pto.record_event(rec, w, ev)
     pto.wait_event(rec, w, ev)
+
+
+def barrier(sync_op):
+    pto.barrier(_resolve_sync_op(sync_op))

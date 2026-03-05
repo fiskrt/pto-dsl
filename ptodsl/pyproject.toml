@@ -11,6 +11,9 @@ authors = [
   { name = "pto-dsl contributors" }
 ]
 
+[project.optional-dependencies]
+dev = ["matplotlib"]
+
 [tool.setuptools]
 packages = ["ptodsl"]
 

@@ -3,7 +3,6 @@ from mlir.ir import IntegerType
 from ptodsl import to_ir_module
 import ptodsl.language as pto
 
-MANUAL_SYNC = True
 
 def build(M=128, K=128, N=128):
     def meta_data():
@@ -34,8 +33,6 @@ def build(M=128, K=128, N=128):
     # event_id can be dynamic SSA value
     # https://github.com/zhangstevenunity/PTOAS/pull/176
     def record_event(src, dst, event_id):
-        if MANUAL_SYNC:
-            return
         pto.cond(
             event_id == const(0),
             lambda: pto.record_event(src, dst, event_id=0),
@@ -43,8 +40,6 @@ def build(M=128, K=128, N=128):
         )
      
     def wait_event(src, dst, event_id):
-        if MANUAL_SYNC:
-            return
         pto.cond(
             event_id == const(0),
             lambda: pto.wait_event(src, dst, event_id=0),

@@ -52,9 +52,6 @@ class Value:
     def __rmod__(self, other):
         return Value(arith.RemSIOp(_unwrap(other), _unwrap(self)).result)
 
-    def __mod__(self, other):
-        return Value(arith.RemUIOp(_unwrap(self), _unwrap(other)).result)
-
     @staticmethod
     def _cmp(lhs, rhs, predicate):
         return Value(arith.CmpIOp(predicate, _unwrap(lhs), _unwrap(rhs)).result)

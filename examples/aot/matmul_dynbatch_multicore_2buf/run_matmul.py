@@ -75,6 +75,7 @@ def load_lib(lib_path):
 
 
 def plot_benchmark():
+    import matplotlib.pyplot as plt
     device = get_test_device()
     torch.set_default_device(device)
     torch.npu.set_device(device)
@@ -92,7 +93,6 @@ def plot_benchmark():
         a = torch.rand((bs, m, k), device=device, dtype=dtype)
         b = torch.rand((k, n), device=device, dtype=dtype)
         c = torch.zeros((bs, m, n), device=device, dtype=dtype)
-
 
         # correctness check
         matmul_func(c, a, b, batch_size=bs, block_dim=24)
@@ -126,7 +126,6 @@ def plot_benchmark():
     print()
     rel_diff = [our/their for our, their in zip(pto_results, torch_results)]
 
-    import matplotlib.pyplot as plt
     fig, ax1 = plt.subplots(figsize=(8,5))
 
     ax1.plot(batches, pto_results, '-', label=f'pto-dsl ({blk[0]} cores)')
@@ -167,7 +166,7 @@ def correctness_verify():
 
     m, k, n = 128, 128, 128
     for blk in [1, 24]:
-        for bs in range(1000, 1100): #range(48, 1000):
+        for bs in range(1000, 1100):
             a = torch.rand((bs, m, k), device=device, dtype=dtype)
             b = torch.rand((k, n), device=device, dtype=dtype)
             c = torch.zeros((bs, m, n), device=device, dtype=dtype)
@@ -189,12 +188,11 @@ def correctness_verify():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--no-benchmark",
+        "--benchmark",
         dest="benchmark",
-        action="store_false",
-        help="Disable benchmarking"
+        action="store_true",
+        help="Enable benchmarking"
     )
-    parser.set_defaults(benchmark=True)
     args = parser.parse_args()
     correctness_verify()
     if args.benchmark:

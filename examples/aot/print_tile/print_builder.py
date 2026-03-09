@@ -61,9 +61,9 @@ def vec_add_kernel_2d_dynamic(
         tb1 = pto.alloc_tile(tile_type, valid_row=v_row_idx, valid_col=v_col_idx)
         tb2 = pto.alloc_tile(tile_type, valid_row=v_row_idx, valid_col=v_col_idx)
 
-        tile.print(tb0)
         pto.load(sv0, tb0)
         pto.load(sv1, tb1)
+        tile.print(tb0)
         tile.add(tb0, tb1, tb2)
         pto.store(tb2, sv2)
 

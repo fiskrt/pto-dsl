@@ -63,6 +63,7 @@ def vec_add_kernel_2d_dynamic(
 
         pto.load(sv0, tb0)
         pto.load(sv1, tb1)
+        pto.print("hello%d\n", c1)
         tile.print(tb0)
         tile.add(tb0, tb1, tb2)
         pto.store(tb2, sv2)

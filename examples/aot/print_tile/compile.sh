@@ -4,20 +4,24 @@ set -e
 
 PTO_DIR="$ASCEND_HOME_PATH/include/pto"
 PTO_BACKUP="$ASCEND_HOME_PATH/include/pto_hidden"
+PTO_LIB_PATH="/sources/pto-isa"
 
-# This runs on exit
+# Ensure PTO_LIB_PATH exists, otherwise exit
+[ -d "$PTO_LIB_PATH" ] || exit 0
+
 restore() {
     if [ -d "$PTO_BACKUP" ]; then
         mv "$PTO_BACKUP" "$PTO_DIR"
     fi
 }
-trap restore EXIT
 
 # For now we have to hide the CANN built-in headers, and use the cloned pto-isa's
 # c.f. https://gitcode.com/cann/pto-isa/issues/149
 mv "$PTO_DIR" "$PTO_BACKUP"
 
-PTO_LIB_PATH=/sources/pto-isa
+# Make restore run on EXIT
+trap restore EXIT
+
 bisheng \
     -I${ASCEND_TOOLKIT_HOME}/include \
     -fPIC -shared -D_FORTIFY_SOURCE=2 -O2 -std=c++17 \

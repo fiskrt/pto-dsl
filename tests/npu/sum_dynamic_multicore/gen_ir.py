@@ -11,8 +11,8 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from sum_builder import (
-    # build_colmax,
-    # build_colmin,
+    build_colmax,
+    build_colmin,
     # build_colprod,
     build_colsum,
     build_rowmax,
@@ -27,8 +27,8 @@ _BUILDERS = {
     "rowmax": build_rowmax,
     # "rowprod": build_rowprod,
     "colsum": build_colsum,
-    # "colmin": build_colmin,
-    # "colmax": build_colmax,
+    "colmin": build_colmin,
+    "colmax": build_colmax,
     # "colprod": build_colprod,
 }
 

@@ -26,8 +26,8 @@ MODES=(
     rowmax
     # rowprod
     colsum
-    # colmin
-    # colmax
+    colmin
+    colmax
     # colprod
 )
 

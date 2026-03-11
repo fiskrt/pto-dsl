@@ -90,8 +90,8 @@ _ROW_REDUCE_OPS = {
 
 _COL_REDUCE_OPS = {
     "sum": tile.col_sum,
-    "min": tile.col_min,
-    "max": tile.col_max,
+    "min": lambda src, tmp, dst: tile.col_min(src, dst),
+    "max": lambda src, tmp, dst: tile.col_max(src, dst),
     "prod": tile.col_prod,
 }
 
@@ -239,10 +239,14 @@ def build_col_reduce(kind="sum", dtype="fp32"):
                     valid_row=rows_this0,
                     valid_col=cols_this,
                 )
-                tb_acc = pto.alloc_tile(
-                    tile_out_type,
-                    valid_col=cols_this,
-                )
+                if kind in {"min", "max"}:
+                    tb_acc = pto.alloc_tile(
+                        tile_type, valid_row=c1, valid_col=cols_this
+                    )
+                else:
+                    tb_acc = pto.alloc_tile(
+                        tile_out_type, valid_col=cols_this
+                    )
 
                 sv_x0 = pto.slice_view(
                     subtensor_in,
@@ -266,10 +270,14 @@ def build_col_reduce(kind="sum", dtype="fp32"):
                         valid_row=rows_this,
                         valid_col=cols_this,
                     )
-                    tb_part = pto.alloc_tile(
-                        tile_out_type,
-                        valid_col=cols_this,
-                    )
+                    if kind in {"min", "max"}:
+                        tb_part = pto.alloc_tile(
+                            tile_type, valid_row=c1, valid_col=cols_this
+                        )
+                    else:
+                        tb_part = pto.alloc_tile(
+                            tile_out_type, valid_col=cols_this
+                        )
 
                     sv_x = pto.slice_view(
                         subtensor_in,

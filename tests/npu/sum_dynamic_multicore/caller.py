@@ -36,8 +36,8 @@ if __name__ == "__main__":
         "rowmax",
         # "rowprod",
         "colsum",
-        # "colmin",
-        # "colmax",
+        "colmin",
+        "colmax",
         # "colprod",
     ]
 

@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from sum_builder import (
+from reduce_builder import (
     build_colmax,
     build_colmin,
     # build_colprod,

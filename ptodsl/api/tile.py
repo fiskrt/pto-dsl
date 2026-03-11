@@ -1,4 +1,5 @@
 from mlir.dialects import pto as _pto
+from mlir.ir import BoolAttr
 
 from .scalar import _unwrap
 
@@ -91,6 +92,42 @@ def row_sum(src, tmp, dst):
     _pto.TRowSumOp(src=src, tmp=tmp, dst=dst)
 
 
+def row_min(src, tmp, dst):
+    _pto.TRowMinOp(src=src, tmp=tmp, dst=dst)
+
+
+def row_max(src, tmp, dst):
+    _pto.TRowMaxOp(src=src, tmp=tmp, dst=dst)
+
+
+def row_prod(src, tmp, dst):
+    _pto.TRowProdOp(src=src, tmp=tmp, dst=dst)
+
+
+def row_expand(src, dst):
+    _pto.TRowExpandOp(src=src, dst=dst)
+
+
+def col_sum(src, tmp, dst, is_binary=True):
+    _pto.TColSumOp(src=src,  dst=dst, tmp=tmp, isBinary=BoolAttr.get(is_binary))
+
+
+def col_min(src, dst):
+    _pto.TColMinOp(src=src,  dst=dst)
+
+
+def col_max(src, dst):
+    _pto.TColMaxOp(src=src,  dst=dst)
+
+
+def col_prod(src, tmp, dst, is_binary=True):
+    _pto.TColProdOp(src=src,  dst=dst, tmp=tmp, isBinary=BoolAttr.get(is_binary))
+
+
+def col_expand(src, dst):
+    _pto.TColExpandOp(src=src, dst=dst)
+
+
 def subset(source, offsets, sizes):
     offset_vals = [_unwrap(v) for v in offsets]
     return _pto.subset(source, offset_vals, sizes)
@@ -120,5 +157,14 @@ __all__ = [
     "matmul_acc",
     "extract",
     "row_sum",
+    "row_min",
+    "row_max",
+    "row_prod",
+    "row_expand",
+    "col_sum",
+    "col_min",
+    "col_max",
+    "col_prod",
+    "col_expand",
     "subset",
 ]

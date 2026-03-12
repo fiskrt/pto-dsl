@@ -232,6 +232,7 @@ def build():
             c1 = const(1)
             c2 = const(2)
             c5 = const(5)
+            c7 = const(7)
             c128 = const(M_TILE)
             c256 = const(N_FULL)
             c128n = const(N_HALF)
@@ -243,7 +244,7 @@ def build():
             swizzle_direction = s.index_cast(swizzle_direction_i32)
             num_blocks = s.index_cast(pto.get_block_num())
             bid = s.index_cast(pto.get_block_idx())
-            cSwizzle = c5
+            cSwizzle = c7
             cSwizzleM1 = cSwizzle - c1
 
             n_loop = (n_total + c256 - c1) // c256

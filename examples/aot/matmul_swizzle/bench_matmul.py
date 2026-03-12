@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 import torch_npu  # noqa: F401
 
+from ptodsl import do_bench
 from ptodsl.test_util import get_test_device
 
 
@@ -145,20 +146,14 @@ def _parse_args():
 
 
 def _time_fn(fn, a_list, b_list, warmup, repeat):
-    for a, b in zip(a_list[:warmup], b_list[:warmup]):
-        fn(a, b)
-    torch.npu.synchronize()
-
-    start = torch.npu.Event(enable_timing=True)
-    end = torch.npu.Event(enable_timing=True)
-    start.record()
-    for a, b in zip(a_list[warmup : warmup + repeat], b_list[warmup : warmup + repeat]):
-        fn(a, b)
-    end.record()
-    torch.npu.synchronize()
-
-    elapsed_ms = start.elapsed_time(end)
-    return elapsed_ms * 1000.0 / repeat
+    idx = 0
+    def _f():
+        nonlocal idx
+        fn(a_list[idx], b_list[idx])
+        idx += 1
+    return do_bench(
+        _f, warmup_iters=warmup, benchmark_iters=repeat, unit="us", flush_cache=True
+    )
 
 
 def _swizzle_cases():

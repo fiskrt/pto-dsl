@@ -166,6 +166,16 @@ def build():
                         tile.extract(a_curr, c0, a_col, a_l0[ping])
                         if phase == 7:
                             pto.record_event("MOV_M2L", "LOAD", event_id=curr_id)
+                            with pto.if_context(k_idx + c1 < k_dtile_num):
+                                sv_a_next = pto.slice_view(
+                                    tile_view_a,
+                                    source=tvA,
+                                    offsets=[m_offset, k_offset + cKD],
+                                    sizes=[const(M_TILE), cKD],
+                                )
+                                pto.wait_event("MOV_M2L", "LOAD", event_id=next_id)
+                                pto.load(sv_a_next, a_next)
+                                pto.record_event("LOAD", "MOV_M2L", event_id=next_id)
 
                         if quarter == 0:
                             pto.wait_event("LOAD", "MOV_M2L", event_id=b_evt)
@@ -187,17 +197,6 @@ def build():
                             tile.matmul_acc(c_l0, a_l0[ping], b_l0[ping], c_l0)
 
                         pto.record_event("MATMUL", "MOV_M2L", event_id=ping)
-
-                with pto.if_context(k_idx + c1 < k_dtile_num):
-                    sv_a_next = pto.slice_view(
-                        tile_view_a,
-                        source=tvA,
-                        offsets=[m_offset, k_offset + cKD],
-                        sizes=[const(M_TILE), cKD],
-                    )
-                    pto.wait_event("MOV_M2L", "LOAD", event_id=next_id)
-                    pto.load(sv_a_next, a_next)
-                    pto.record_event("LOAD", "MOV_M2L", event_id=next_id)
 
             with pto.if_context(is_curr0, has_else=True) as branch:
                 level2_loop_k(0, 1, a_l1[0], a_l1[1])

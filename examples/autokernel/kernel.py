@@ -241,10 +241,9 @@ def build():
             n_total = s.index_cast(n_i32)
             k_total = s.index_cast(k_i32)
             swizzle_direction = s.index_cast(swizzle_direction_i32)
-            swizzle_count = s.index_cast(swizzle_count_i32)
             num_blocks = s.index_cast(pto.get_block_num())
             bid = s.index_cast(pto.get_block_idx())
-            cSwizzle = s.select(swizzle_count > c0, swizzle_count, c1)
+            cSwizzle = c2
             cSwizzleM1 = cSwizzle - c1
 
             n_loop = (n_total + c256 - c1) // c256

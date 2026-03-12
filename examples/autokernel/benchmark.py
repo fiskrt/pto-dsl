@@ -1,5 +1,8 @@
 import ctypes
+import multiprocessing as mp
 import os
+import sys
+import traceback
 
 import torch
 import torch_npu  # noqa: F401
@@ -16,6 +19,7 @@ SWIZZLE_DIRECTION = 1
 SWIZZLE_COUNT = 3
 WARMUP_ITERS = 5
 BENCH_ITERS = 20
+TIMEOUT_SECONDS = 30.0
 
 
 def torch_to_ctypes(tensor):
@@ -72,7 +76,7 @@ def load_lib(lib_path):
     return matmul_abt
 
 
-def main():
+def run_benchmark():
     device = get_test_device()
     torch.npu.set_device(device)
     matmul_abt = load_lib("./matmul_kernel.so")
@@ -93,10 +97,54 @@ def main():
     flops = 2.0 * M * N * K
     tflops = flops / time_us / 1e6
 
+    return tflops, time_us
+
+
+def _worker(result_q):
+    try:
+        tflops, time_us = run_benchmark()
+        result_q.put(
+            {
+                "ok": True,
+                "tflops": float(tflops),
+                "time_us": float(time_us),
+            }
+        )
+    except Exception:
+        result_q.put({"ok": False, "error": traceback.format_exc()})
+
+
+def main():
+    ctx = mp.get_context("spawn")
+    result_q = ctx.Queue(maxsize=1)
+    proc = ctx.Process(target=_worker, args=(result_q,))
+    proc.start()
+    proc.join(TIMEOUT_SECONDS)
+
+    if proc.is_alive():
+        proc.terminate()
+        proc.join()
+        print(
+            f"ERROR: benchmark timed out after {TIMEOUT_SECONDS:.1f}s; "
+            "terminated hung kernel process.",
+            file=sys.stderr,
+        )
+        raise SystemExit(124)
+
+    if result_q.empty():
+        code = proc.exitcode
+        print(f"ERROR: benchmark process exited without result (exit_code={code}).", file=sys.stderr)
+        raise SystemExit(1)
+
+    result = result_q.get()
+    if not result["ok"]:
+        print(result["error"], file=sys.stderr)
+        raise SystemExit(1)
+
     print("---")
     print(f"(m, n, k)=({M}, {N}, {K})")
-    print(f"TFLOPS: {tflops:.1f}")
-    print(f"execution_time: {time_us:.5f} us")
+    print(f"TFLOPS: {result['tflops']:.1f}")
+    print(f"execution_time: {result['time_us']:.5f} us")
 
 
 if __name__ == "__main__":

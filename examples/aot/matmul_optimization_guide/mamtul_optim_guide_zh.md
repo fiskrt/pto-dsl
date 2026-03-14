@@ -184,7 +184,7 @@ l2_size=201326592  # 192 MiB
 
 8192x8192 矩阵（float16 下 64 MiB）小于 L2；而16384x16384（float16 下 256 MiB）大于 L2，所以后者的性能显著更差。
 
-`910B4` 的 HBM 和 L2 都是 910B2 的一半（因此更小矩阵就会触发cache eviction）：
+`910B4` 的 HBM 和 L2 都是 `910B2` 的一半（因此更小矩阵就会触发cache eviction）：
 
 ```bash
 grep -A 8 "SoCInfo" ${ASCEND_HOME_PATH}/arm64-linux/data/platform_config/Ascend910B4.ini

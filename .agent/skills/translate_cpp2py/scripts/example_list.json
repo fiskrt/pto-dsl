@@ -72,6 +72,33 @@
     "cpp_file": "hadamard_manual_sync.cpp"
   },
   {
+    "example_dir": "fast_inverse",
+    "compile_script": "compile.sh",
+    "py_source": "inverse_builder.py",
+    "py_command": "python ./inverse_builder.py --matrix-size 16 --kernel-name tri_inv_trick_fp16_16 > ./build_artifacts/inverse_auto_sync_16.pto",
+    "ptoas_command": "ptoas --enable-insert-sync ./build_artifacts/inverse_auto_sync_16.pto -o ./build_artifacts/inverse_auto_sync_16.cpp",
+    "pto_file": "build_artifacts/inverse_auto_sync_16.pto",
+    "cpp_file": "build_artifacts/inverse_auto_sync_16.cpp"
+  },
+  {
+    "example_dir": "fast_inverse",
+    "compile_script": "compile.sh",
+    "py_source": "inverse_builder.py",
+    "py_command": "python ./inverse_builder.py --manual-sync --matrix-size 16 --kernel-name tri_inv_trick_fp16_16 > ./build_artifacts/inverse_manual_sync_16.pto",
+    "ptoas_command": "ptoas ./build_artifacts/inverse_manual_sync_16.pto -o ./build_artifacts/inverse_manual_sync_16.cpp",
+    "pto_file": "build_artifacts/inverse_manual_sync_16.pto",
+    "cpp_file": "build_artifacts/inverse_manual_sync_16.cpp"
+  },
+  {
+    "example_dir": "fast_inverse",
+    "compile_script": "compile.sh",
+    "py_source": "inverse_builder.py",
+    "py_command": "python ./inverse_builder.py --matrix-size 128 --kernel-name tri_inv_trick_fp16_128 > ./build_artifacts/inverse_auto_sync_128.pto",
+    "ptoas_command": "ptoas --enable-insert-sync ./build_artifacts/inverse_auto_sync_128.pto -o ./build_artifacts/inverse_auto_sync_128.cpp",
+    "pto_file": "build_artifacts/inverse_auto_sync_128.pto",
+    "cpp_file": "build_artifacts/inverse_auto_sync_128.cpp"
+  },
+  {
     "example_dir": "matmul_optimization_guide",
     "compile_script": "compile.sh",
     "py_source": "step1_baseline.py",

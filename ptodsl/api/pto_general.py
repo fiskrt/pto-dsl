@@ -36,6 +36,12 @@ def _resolve_address_space_attr(location):
     return location
 
 
+def _resolve_peer_func_attr(peer_func):
+    if isinstance(peer_func, str):
+        return FlatSymbolRefAttr.get(peer_func.removeprefix("@"))
+    return peer_func
+
+
 def as_tensor(tensor_type, *, ptr, shape, strides, layout=None):
     shape_vals = [_unwrap(v) for v in shape]
     stride_vals = [_unwrap(v) for v in strides]
@@ -90,10 +96,14 @@ def alloc_tile(tile_type, *, addr=None, valid_row=None, valid_col=None):
 #     auto = true
 # } -> i32
 def reserve_buffer(*, name, size, location, auto_alloc=True, base=None):
-    # TODO: should return be wrapped in Value class?
     # All params are compile time attributes
     # wrap reserve_buffer(name, size, location, auto_alloc, *, base=None, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Value
-    pass
+    kwargs = {}
+    if base is not None:
+        kwargs["base"] = base
+    return _pto.reserve_buffer(
+        name, size, _resolve_address_space_attr(location), auto_alloc, **kwargs
+    )
 
 
 # %c2v_import = pto.import_reserved_buffer {
@@ -102,13 +112,29 @@ def reserve_buffer(*, name, size, location, auto_alloc=True, base=None):
 # } -> i32
 def import_reserved_buffer(*, name, peer_func):
     # wrap import_reserved_buffer(name, peer_func, *, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Value
-    pass
+    return _pto.import_reserved_buffer(name, _resolve_peer_func_attr(peer_func))
 
 
-def aic_initialize_pipe(*, dir_mask, slot_size, gm_slot_buffer=None, c2v_consumer_buf, v2c_consumer_buf):
+def aic_initialize_pipe(
+    *,
+    dir_mask,
+    slot_size,
+    gm_slot_buffer=None, # only needed on a2/a3?
+    c2v_consumer_buf,
+    v2c_consumer_buf,
+):
     # wrap
     # aic_initialize_pipe(dir_mask, slot_size, c2v_consumer_buf, v2c_consumer_buf, *, gm_slot_buffer=None, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Operation
-    pass
+    kwargs = {}
+    if gm_slot_buffer is not None:
+        kwargs["gm_slot_buffer"] = _unwrap(gm_slot_buffer)
+    return _pto.aic_initialize_pipe(
+        dir_mask,
+        slot_size,
+        _unwrap(c2v_consumer_buf),
+        _unwrap(v2c_consumer_buf),
+        **kwargs,
+    )
 
 
 # pto.aiv_initialize_pipe {dir_mask = 1, slot_size = 1024} (
@@ -116,21 +142,37 @@ def aic_initialize_pipe(*, dir_mask, slot_size, gm_slot_buffer=None, c2v_consume
 #    c2v_consumer_buf = %c2v_local : i32,
 #    v2c_consumer_buf = %c0_i32 : i32
 # )
-def aiv_initialize_pipe(*, dir_mask, slot_size, gm_slot_buffer=None, c2v_consumer_buf, v2c_consumer_buf):
+def aiv_initialize_pipe(
+    *,
+    dir_mask,
+    slot_size,
+    gm_slot_buffer=None,
+    c2v_consumer_buf,
+    v2c_consumer_buf,
+):
     # wrap
     # aiv_initialize_pipe(dir_mask, slot_size, c2v_consumer_buf, v2c_consumer_buf, *, gm_slot_buffer=None, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Operation
-    pass
+    kwargs = {}
+    if gm_slot_buffer is not None:
+        kwargs["gm_slot_buffer"] = _unwrap(gm_slot_buffer)
+    return _pto.aiv_initialize_pipe(
+        dir_mask,
+        slot_size,
+        _unwrap(c2v_consumer_buf),
+        _unwrap(v2c_consumer_buf),
+        **kwargs,
+    )
 
 
 # pto.tpush_to_aiv(%acc_tile : !pto.tile_buf<loc=acc, dtype=f32, ..., pad=0>) {split = 0}
 def tpush_to_aiv(tile, split):
     # wrap tpush_to_aiv(tile, split, *, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Operation
-    _pto.tpush_to_aiv(tile, split)
+    return _pto.tpush_to_aiv(_unwrap(tile), split)
 
 
 def tpush_to_aic(tile, split):
     # wrap: tpush_to_aic(tile, split, *, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Operation
-    _pto.tpush_to_aic(tile, split)
+    return _pto.tpush_to_aic(_unwrap(tile), split)
 
 
 # %recv_tile = pto.tpop_from_aic {split = 0} -> !pto.tile_buf<loc=vec, ... fractal=512, pad=0>
@@ -147,12 +189,12 @@ def tpop_from_aiv(tile_type, split):
 # pto.tfree_from_aic {split = 0}
 def tfree_from_aic(split):
     # wrap tfree_from_aic(split, *, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Operation
-    _pto.tfree_from_aic(split)
+    return _pto.tfree_from_aic(split)
 
 
 def tfree_from_aiv(split):
     # wrap tfree_from_aiv(split, *, loc=None, ip=None) -> mlir._mlir_libs._mlir.ir.Operation
-    _pto.tfree_from_aiv(split)
+    return _pto.tfree_from_aiv(split)
 
 
 def load(source, dest):

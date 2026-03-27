@@ -11,5 +11,5 @@ extern "C" void call_kernel(
     void *stream,
     uint8_t *gmSlotBuffer)
 {
-    bidirectional_example<<<blockDim, nullptr, stream>>>((__gm__ float *)gmSlotBuffer);
+    call_both<<<blockDim, nullptr, stream>>>((__gm__ float *)gmSlotBuffer);
 }

@@ -9,7 +9,9 @@
 extern "C" void call_kernel(
     uint32_t blockDim,
     void *stream,
-    uint8_t *gmSlotBuffer)
+    uint8_t *gmSlotBuffer,
+    uint8_t *x,
+    uint8_t *y)
 {
-    call_both<<<blockDim, nullptr, stream>>>((__gm__ float *)gmSlotBuffer);
+    call_both<<<blockDim, nullptr, stream>>>((__gm__ float *)gmSlotBuffer, (__gm__ float *)x, (__gm__ float *)y);
 }

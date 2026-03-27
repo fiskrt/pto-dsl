@@ -13,14 +13,15 @@
 // - Cube -> Vector: one full `16 x 16` `f32` accumulator tile via `pto.tpush_to_aiv`
 //   with `split = 0` (no split). Vector receives that same logical `16 x 16` tile
 //   with `pto.tpop_from_aic`, but in a vector tile type/layout.
-// - Vector -> Cube: one full `16 x 16` `f32` vector tile via `pto.tpush_to_aic`
-//   with `split = 0` (no split). Cube receives that same logical `16 x 16` tile
-//   with `pto.tpop_from_aiv`, but in a matrix tile type/layout.
+// - Vector -> Cube: the doubled version of that received tile. Vector computes
+//   `recv_tile + recv_tile` with `pto.tadd`, then sends that full `16 x 16` `f32`
+//   result back with `pto.tpush_to_aic`. Cube receives it with `pto.tpop_from_aiv`
+//   in a matrix tile type/layout.
 //
 // Shape summary:
 // - All transferred tiles are `rows=16, cols=16, dtype=f32`
 // - Cube-produced tile: `loc=acc`, `blayout=col_major`, `slayout=row_major`
-// - Vector-produced tile: `loc=vec`, `blayout=row_major`, `slayout=none_box`
+// - Vector-produced return tile: `loc=vec`, `blayout=row_major`, `slayout=none_box`
 // - Cube-consumed tile after V2C pop: `loc=mat`, `blayout=col_major`, `slayout=row_major`
 // - Vector-consumed tile after C2V pop: `loc=vec`, `blayout=row_major`, `slayout=none_box`
 module {
@@ -75,14 +76,12 @@ module {
        c2v_consumer_buf = %c2v_local : i32,
        v2c_consumer_buf = %v2c_import : i32)
 
-    %vec_tile = pto.alloc_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>
-    pto.tpush_to_aic(%vec_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>) {split = 0}
-
     %recv_tile = pto.tpop_from_aic {split = 0}
       -> !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>
-    %neg_tile = pto.alloc_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>
-    pto.tneg ins(%recv_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%neg_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>)
+    %sum_tile = pto.alloc_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>
+    pto.tadd ins(%recv_tile, %recv_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>, !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>) outs(%sum_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>)
     pto.tfree_from_aic {split = 0}
+    pto.tpush_to_aic(%sum_tile : !pto.tile_buf<loc=vec, dtype=f32, rows=16, cols=16, v_row=16, v_col=16, blayout=row_major, slayout=none_box, fractal=512, pad=0>) {split = 0}
     return
   }
 

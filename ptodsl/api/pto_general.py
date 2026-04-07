@@ -1,7 +1,7 @@
 from contextlib import contextmanager
 
 from mlir.dialects import pto as _pto
-from mlir.ir import FlatSymbolRefAttr, InsertionPoint
+from mlir.ir import FlatSymbolRefAttr, InsertionPoint, Operation
 
 from .scalar import Value, _unwrap
 
@@ -37,9 +37,19 @@ def _resolve_address_space_attr(location):
 
 
 def _resolve_peer_func_attr(peer_func):
+    if hasattr(peer_func, "sym_name"):
+        peer_func = peer_func.sym_name
     if isinstance(peer_func, str):
         return FlatSymbolRefAttr.get(peer_func.removeprefix("@"))
     return peer_func
+
+
+def call(callee, *args):
+    return Operation.create(
+        "func.call",
+        operands=[_unwrap(arg) for arg in args],
+        attributes={"callee": _resolve_peer_func_attr(callee)},
+    )
 
 
 def as_tensor(tensor_type, *, ptr, shape, strides, layout=None):
@@ -226,6 +236,7 @@ __all__ = [
     "get_subblock_idx",
     "get_subblock_num",
     "get_block_num",
+    "call",
     "as_tensor",
     "slice_view",
     "vector_section",

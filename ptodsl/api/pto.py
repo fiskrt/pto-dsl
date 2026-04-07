@@ -1,3 +1,4 @@
+from ..compiler.ir import ir_func as func
 from .control_flow import cond, range, if_context
 from .scalar import Value, wrap_value
 from .pto_general import (
@@ -5,6 +6,7 @@ from .pto_general import (
     aic_initialize_pipe,
     aiv_initialize_pipe,
     as_tensor,
+    call,
     cube_section,
     get_block_idx,
     get_block_num,
@@ -48,10 +50,12 @@ __all__ = [
     "SubTensorType",
     "TileBufConfig",
     "TileBufType",
+    "func",
     "get_block_idx",
     "get_subblock_idx",
     "get_subblock_num",
     "get_block_num",
+    "call",
     "as_tensor",
     "slice_view",
     "vector_section",

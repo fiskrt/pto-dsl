@@ -1,3 +1,4 @@
+import argparse
 import ctypes
 import os
 import subprocess
@@ -15,17 +16,20 @@ M = 16
 N = 16
 ATOL = 1e-4
 RTOL = 1e-4
+MODES = ("c2v", "c2v_add", "v2c", "bidi")
 
 
 def torch_to_ctypes(tensor: torch.Tensor) -> ctypes.c_void_p:
     return ctypes.c_void_p(tensor.data_ptr())
 
 
-def compile_example(compile_script: str) -> None:
+def compile_example(compile_script: str, mode: str) -> None:
+    env = dict(os.environ, TPUSHPOP_MODE=mode)
     subprocess.run(
         ["bash", compile_script],
         check=True,
         cwd=THIS_DIR,
+        env=env,
     )
 
 
@@ -65,8 +69,24 @@ def run_kernel(lib: ctypes.CDLL, *, gm_slot_buffer: torch.Tensor, x: torch.Tenso
     torch.npu.synchronize()
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", nargs="?", choices=MODES, default="c2v")
+    return parser.parse_args()
+
+
+def reference(mode: str, x: torch.Tensor) -> torch.Tensor:
+    y = x.cpu() @ x.cpu()
+    if mode == "c2v":
+        return y
+    if mode == "v2c":
+        return x.cpu()
+    return 2 * y
+
+
 def main() -> None:
-    compile_example(DEFAULT_COMPILE_SCRIPT)
+    args = parse_args()
+    compile_example(DEFAULT_COMPILE_SCRIPT, args.mode)
 
     device = get_test_device()
     torch.npu.set_device(device)
@@ -83,7 +103,7 @@ def main() -> None:
     run_kernel(lib, gm_slot_buffer=gm_slot_buffer, x=x, y=y)
     print(y)
 
-    y_ref = x.cpu() @ x.cpu()
+    y_ref = reference(args.mode, x)
     y_cpu = y.cpu()
 
     print(y_ref-y_cpu)
@@ -94,7 +114,7 @@ def main() -> None:
     if not ok:
         raise SystemExit(f"Validation failed with atol={ATOL} rtol={RTOL}. max_abs={max_abs:.6f}")
 
-    print(f"Validation passed using {DEFAULT_LIB_PATH}.")
+    print(f"Validation passed for mode={args.mode} using {DEFAULT_LIB_PATH}.")
 
 
 if __name__ == "__main__":

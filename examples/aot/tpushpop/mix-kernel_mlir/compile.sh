@@ -3,15 +3,24 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTIFACT_DIR="${SCRIPT_DIR}/build_artifacts"
-MLIR_PATH="${SCRIPT_DIR}/c2v.mlir"
-GENERATED_CPP="${ARTIFACT_DIR}/c2v.cpp"
+MODE="${TPUSHPOP_MODE:-c2v}"
+BUILDER_PATH="${SCRIPT_DIR}/${MODE}_builder.py"
+MLIR_GEN_PATH="${SCRIPT_DIR}/${MODE}_gen.mlir"
+GENERATED_CPP="${ARTIFACT_DIR}/${MODE}.cpp"
 LIB_PATH="${SCRIPT_DIR}/tpushpop_mlir_lib.so"
+
+case "${MODE}" in
+  c2v|c2v_add|v2c|bidi) ;;
+  *)
+    echo "Unknown TPUSHPOP_MODE: ${MODE}" >&2
+    exit 2
+    ;;
+esac
 
 mkdir -p "${ARTIFACT_DIR}"
 rm -f "${GENERATED_CPP}" "${LIB_PATH}"
 
-MLIR_GEN_PATH="${SCRIPT_DIR}/c2v_gen.mlir"
-python c2v_builder.py > c2v_gen.mlir
+python "${BUILDER_PATH}" > "${MLIR_GEN_PATH}"
 ptoas --pto-arch=a3 --enable-insert-sync "${MLIR_GEN_PATH}" > "${GENERATED_CPP}"
 
 

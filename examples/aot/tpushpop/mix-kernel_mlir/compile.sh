@@ -3,19 +3,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARTIFACT_DIR="${SCRIPT_DIR}/build_artifacts"
-MLIR_PATH="${SCRIPT_DIR}/bidirectional_example.mlir"
-GENERATED_CPP="${ARTIFACT_DIR}/bidirectional_example.cpp"
+MLIR_PATH="${SCRIPT_DIR}/c2v.mlir"
+GENERATED_CPP="${ARTIFACT_DIR}/c2v.cpp"
 LIB_PATH="${SCRIPT_DIR}/tpushpop_mlir_lib.so"
 
 mkdir -p "${ARTIFACT_DIR}"
 rm -f "${GENERATED_CPP}" "${LIB_PATH}"
 
 MLIR_GEN_PATH="${SCRIPT_DIR}/bidir_gen.mlir"
-python bidirectional_builder.py > bidir_gen.mlir
+python c2v_builder.py > c2v_gen.mlir
 ptoas --pto-arch=a3 --enable-insert-sync "${MLIR_GEN_PATH}" > "${GENERATED_CPP}"
-
-#ptoas --pto-arch=a3 --enable-insert-sync "${MLIR_PATH}" > "${GENERATED_CPP}"
-
 
 
 bisheng \

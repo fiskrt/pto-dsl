@@ -52,6 +52,10 @@ def call(callee, *args):
     )
 
 
+def set_ffts(ffts):
+    return _pto.SetFFTsOp(_unwrap(ffts))
+
+
 def as_tensor(tensor_type, *, ptr, shape, strides, layout=None):
     shape_vals = [_unwrap(v) for v in shape]
     stride_vals = [_unwrap(v) for v in strides]
@@ -234,6 +238,7 @@ __all__ = [
     "get_subblock_num",
     "get_block_num",
     "call",
+    "set_ffts",
     "as_tensor",
     "slice_view",
     "vector_section",

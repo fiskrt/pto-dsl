@@ -61,7 +61,6 @@ def fn_name(n_cols: int, topk: int) -> str:
 def build_topk(
     n_cols: int = 512,
     topk: int = 256,
-    block_dim: int = 24,
     sort_block_len: int = _SORT_BLOCK_LEN,
 ):
     """Return a compiled MLIR module for the given compile-time TopK shape.
@@ -173,13 +172,12 @@ def build_topk(
         c1 = const(1)
         c_ncols = const(n_cols)
         c_topk = const(topk)
-        c_bdim = const(block_dim)
-
         n_rows_dyn = s.index_cast(argN)
         bid = s.index_cast(pto.get_block_idx())
+        n_blocks = s.index_cast(pto.get_block_num())
 
         # Distribute rows across blocks with ceil_div – works for any n_rows.
-        rows_per_core = s.ceil_div(n_rows_dyn, c_bdim)
+        rows_per_core = s.ceil_div(n_rows_dyn, n_blocks)
         row_start = bid * rows_per_core
         row_end_raw = row_start + rows_per_core
         need_clamp = row_end_raw > n_rows_dyn
@@ -283,6 +281,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Print MLIR IR for a TopK kernel")
     parser.add_argument("--n-cols", type=int, default=512)
     parser.add_argument("--topk", type=int, default=256)
-    parser.add_argument("--block-dim", type=int, default=24)
     args = parser.parse_args()
-    print(build_topk(n_cols=args.n_cols, topk=args.topk, block_dim=args.block_dim))
+    print(build_topk(n_cols=args.n_cols, topk=args.topk))

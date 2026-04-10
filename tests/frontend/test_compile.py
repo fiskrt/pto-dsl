@@ -41,7 +41,7 @@ import pytest
 
 from ptodsl import JitWrapper, to_ir_module
 
-from conftest import run_ptoas, run_bisheng
+from tooling import run_ptoas, run_bisheng
 
 _THIS_DIR = pathlib.Path(__file__).parent
 

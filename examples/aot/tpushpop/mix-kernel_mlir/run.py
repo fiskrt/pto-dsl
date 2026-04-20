@@ -6,7 +6,7 @@ import sys
 import torch
 import torch_npu  # noqa: F401
 
-from ptodsl.npu_info import get_num_cube_cores, get_test_device
+from ptodsl.utils.npu_info import get_num_cube_cores, get_test_device
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 LIB = os.path.join(HERE, "build_artifacts", "tpushpop_mlir_lib.so")

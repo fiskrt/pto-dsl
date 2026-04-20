@@ -99,6 +99,8 @@ def __getattr__(name):
         return IntegerType.get_signless(8)
     if name == "uint32":
         return IntegerType.get_unsigned(32)
+    if name == "int8":
+        return IntegerType.get_signed(8)
     if name == "uint8":
         return IntegerType.get_unsigned(8)
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
@@ -156,6 +158,15 @@ def select(cond, true_val, false_val):
     )
 
 
+def truncf(value, target_type):
+    """Truncate a floating-point scalar to a narrower float type (e.g. f32 → f16).
+
+    Returns a raw MLIR value suitable for use as a tile scalar operand
+    (e.g. with tile.muls / tile.adds).
+    """
+    return arith.TruncFOp(target_type, _unwrap(value)).result
+
+
 __all__ = [
     "Value",
     "_unwrap",
@@ -171,4 +182,5 @@ __all__ = [
     "gt",
     "ge",
     "select",
+    "truncf",
 ]

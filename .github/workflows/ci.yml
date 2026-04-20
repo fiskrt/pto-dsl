@@ -50,7 +50,7 @@ jobs:
       RELEASE_VER: 0.24
       RELEASE_TAG: v0.24
       CLI_DIR: /installers/ptoas-cli
-      PTOISA_COMMIT: a8c3fbf42a2f4a0f609f64e138dda62deefddb8e
+      PTOISA_COMMIT: 6d4d591155de3f3277381abbfe20d41b4170d202
 
     steps:
       - name: Install system packages
@@ -96,11 +96,15 @@ jobs:
           fi
 
       - name: Run frontend tests
-        run: pytest -v ./tests/frontend
+        run: |
+          export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+          pytest -v ./tests/frontend
+        env:
+          PTO_LIB_PATH: /sources/pto-isa
 
       - name: Run NPU build tests
         run: |
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib
+          export LD_LIBRARY_PATH=/usr/local/Ascend/ascend-toolkit/latest/$(uname -i)-linux/devlib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
           pytest -v -m "not require_npu" ./tests/npu
         env:
           TORCH_DEVICE_BACKEND_AUTOLOAD: "0"

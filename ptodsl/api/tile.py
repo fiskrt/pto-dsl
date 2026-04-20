@@ -221,6 +221,16 @@ _ROUND_MODE = {
 }
 
 
+def muls(src, scalar, dst):
+    """Multiply every element of a tile by a scalar value (tile * scalar → tile)."""
+    _pto.tmuls(src, _unwrap(scalar), dst)
+
+
+def adds(src, scalar, dst):
+    """Add a scalar value to every element of a tile (tile + scalar → tile)."""
+    _pto.tadds(src, _unwrap(scalar), dst)
+
+
 def cvt(src, dst, *, rmode=None):
     """Convert tile element type (e.g. float32 → float16, float16 → float32).
 
@@ -234,6 +244,24 @@ def cvt(src, dst, *, rmode=None):
         _pto.RoundModeAttr.get(_ROUND_MODE[rmode]) if rmode is not None else None
     )
     _pto.TCvtOp(src=src, dst=dst, rmode=rmode_attr)
+
+
+_QUANT_TYPE = {
+    "int8_sym": _pto.QuantType.INT8_SYM,
+    "int8_asym": _pto.QuantType.INT8_ASYM,
+}
+
+
+def quant(src, fp, dst, quant_type, *, offset=None):
+    """Quantize fp32 src tile to int8/uint8 dst tile.
+
+    quant_type: "int8_sym"  → signed int8,   dst = clip(round(src * fp), -128, 127)
+                "int8_asym" → unsigned uint8, dst = clip(round(src * fp + offset), 0, 255)
+    fp:     inverse-scale tile, same shape as src.
+    offset: zero-point tile, same shape as src (int8_asym only).
+    """
+    qtype_attr = _pto.QuantTypeAttr.get(_QUANT_TYPE[quant_type])
+    _pto.TQuantOp(src=src, fp=fp, dst=dst, quant_type=qtype_attr, offset=offset)
 
 
 def subset(source, offsets, sizes):
@@ -292,6 +320,9 @@ __all__ = [
     "row_expand_expdif",
     "mrgsort",
     "sort32",
+    "muls",
+    "adds",
     "cvt",
+    "quant",
     "subset",
 ]

@@ -53,13 +53,13 @@ def make_gm_slot_buffer(*, fifo_bytes: int, device: str) -> torch.Tensor:
 
 
 def block_dim_for_mode(mode: str) -> int:
-    return get_num_cube_cores() if mode == "bidi" else 1
+    return get_num_cube_cores() if mode in ("c2v", "bidi") else 1
 
 
 def make_io_tensors(
     *, mode: str, block_dim: int, device: str
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    shape = (block_dim, M, N) if mode == "bidi" else (M, N)
+    shape = (block_dim, M, N) if mode in ("c2v", "bidi") else (M, N)
     x = torch.rand(shape, dtype=torch.float32, device=device) - 0.5
     y = torch.zeros(shape, dtype=torch.float32, device=device)
     return x, y
@@ -67,7 +67,9 @@ def make_io_tensors(
 
 def fifo_bytes_for_mode(mode: str, *, block_dim: int) -> int:
     per_block = (
-        DEFAULT_FIFO_BYTES_BOTH if mode in ("v2c", "bidi") else DEFAULT_FIFO_BYTES
+        DEFAULT_FIFO_BYTES_BOTH
+        if mode in ("c2v", "c2v_add", "v2c", "bidi")
+        else DEFAULT_FIFO_BYTES
     )
     return per_block * block_dim
 

@@ -30,10 +30,6 @@ import torch_npu
 from ptodsl.utils import get_test_device
 from ptodsl.bench import do_bench
 
-if __package__:
-    from .jit_util_flash import jit_compile_flash
-else:
-    from jit_util_flash import jit_compile_flash
 
 THIS_DIR = Path(__file__).resolve().parent
 
@@ -186,7 +182,7 @@ def load_dsl_flash(lib_path: Path | None = None):
     return flash, fa_dsl_builder.TILE_S1
 
 
-def test_flash(use_dsl: bool = False):
+def test_flash():
     s0, head = 128 * 24, 128
     s1_values = [1024, 2048, 4096, 8192, 16384, 32768, 64 * 1024, 128 * 1024]
     is_causal = False
@@ -194,12 +190,8 @@ def test_flash(use_dsl: bool = False):
     dtype = torch.float16
     q2d = torch.randn((s0, head), dtype=dtype).npu()
 
-    if use_dsl:
-        flash, _ = load_dsl_flash()
-        run_flash = lambda q, k, v: flash(q, k, v)
-    else:
-        flash = jit_compile_flash(verbose=False)
-        run_flash = lambda q, k, v: flash(q, k, v, is_causal=True)
+    flash, s1_tile = load_dsl_flash()
+    run_flash = lambda q, k, v: flash(q, k, v)
 
     flash_ms_values = []
     npu_ms_values = []
@@ -255,9 +247,9 @@ def test_flash(use_dsl: bool = False):
 
         print(f"S1                         : {s1}")
         print(f"Causal                     : {is_causal}")
-        print(f"FLOPs total                : {flops_total}")
+        print(f"GFLOPs total                : {flops_total//10e9}")
         print(
-            f"{'PTODSL flash kernel' if use_dsl else 'JIT flash kernel':<27}: {flash_ms:.3f} ms/iter  "
+            f"{'PTODSL flash kernel':<27}: {flash_ms:.3f} ms/iter  "
             f"({tflops(flops_total, flash_ms):.3f} TFLOP/s)"
         )
         print(
@@ -274,9 +266,7 @@ def test_flash(use_dsl: bool = False):
         print("vs npu_fused_attention: PASSED")
         print("")
 
-    plot_path = Path(__file__).with_name(
-        "naive_tpush_dsl_plot.png" if use_dsl else "naive_tpush_plot.png"
-    )
+    plot_path = Path(__file__).with_name("naive_tpush_dsl_plot.png")
     plt.figure(figsize=(8, 5))
     plt.plot(s1_values, flash_tflops_values, marker="o", label="flash")
     plt.plot(s1_values, ref_tflops_values, marker="o", label="ref")
@@ -286,8 +276,7 @@ def test_flash(use_dsl: bool = False):
     plt.xlabel("S1")
     plt.ylabel("TFLOP/s")
     plt.title(
-        f"Flash Attention (naive TPUSH/TPOP{' PTODSL non-causal' if use_dsl else ''}) "
-        f"TFLOP/s vs S1 (S0={s0}, head={head})"
+        f"Flash Attention ptodsl vs rest. TFLOP/s vs S1\n(S0={s0}, head={head} S1_TILE={s1_tile})"
     )
     plt.grid(True, which="both", axis="both", linestyle="--", linewidth=0.5)
     plt.legend()
@@ -298,11 +287,4 @@ def test_flash(use_dsl: bool = False):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dsl",
-        action="store_true",
-        help="run the prebuilt non-causal PTODSL AOT variant from build_artifacts/fa_dsl.so",
-    )
-    args = parser.parse_args()
-    test_flash(use_dsl=args.dsl)
+    test_flash()

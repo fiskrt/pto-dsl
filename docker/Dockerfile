@@ -16,9 +16,9 @@ RUN pip install --no-cache-dir \
     ipython jupyterlab matplotlib pandas
 
 # This specific commit might not be found as it has been forced push over
-ARG PTOISA_COMMIT=2e64914437d3c4eb35ab1fc5ff78a04a01059b1e
+ARG PTOISA_COMMIT=4e27a104f948e883e0bef44670252381bff794c5
 WORKDIR /sources
-RUN git clone -b feature_subtile https://gitcode.com/csjlchen/pto-isa \
+RUN git clone --single-branch --branch master https://gitcode.com/cann/pto-isa.git \
     && cd pto-isa && git checkout $PTOISA_COMMIT
 
 # cache above layers unrelated to ptoas version change

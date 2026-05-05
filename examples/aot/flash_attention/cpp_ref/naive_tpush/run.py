@@ -22,14 +22,15 @@ import math
 import argparse
 import ctypes
 import subprocess
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import torch
 import torch_npu
+from jit_util_flash import jit_compile_flash
 from ptodsl.utils import get_test_device
 from ptodsl.bench import do_bench
-
 
 THIS_DIR = Path(__file__).resolve().parent
 
@@ -116,10 +117,8 @@ def load_dsl_flash(lib_path: Path | None = None):
     if not lib_path.exists():
         raise FileNotFoundError(f"compile.sh did not create {lib_path}")
 
-    if __package__:
-        from .kernels import fa_dsl_builder
-    else:
-        from kernels import fa_dsl_builder
+    sys.path.insert(0, str(THIS_DIR / "kernels"))
+    import fa_dsl_builder  # noqa: E402
 
     lib = ctypes.CDLL(str(lib_path))
     lib.call_kernel.argtypes = [
@@ -182,16 +181,24 @@ def load_dsl_flash(lib_path: Path | None = None):
     return flash, fa_dsl_builder.TILE_S1
 
 
-def test_flash():
+def test_flash(use_dsl: bool = False):
     s0, head = 128 * 24, 128
     s1_values = [1024, 2048, 4096, 8192, 16384, 32768, 64 * 1024, 128 * 1024]
     is_causal = False
+    tile_s1 = 128 if use_dsl else 256
+    bad_s1 = [s1 for s1 in s1_values if s1 % tile_s1 != 0]
+    if bad_s1:
+        raise ValueError(f"tile_s1={tile_s1} does not divide S1 values: {bad_s1}")
 
     dtype = torch.float16
     q2d = torch.randn((s0, head), dtype=dtype).npu()
 
-    flash, s1_tile = load_dsl_flash()
-    run_flash = lambda q, k, v: flash(q, k, v)
+    if use_dsl:
+        flash, tile_s1 = load_dsl_flash()
+        run_flash = lambda q, k, v: flash(q, k, v)
+    else:
+        flash = jit_compile_flash(verbose=False)
+        run_flash = lambda q, k, v: flash(q, k, v, is_causal=True)
 
     flash_ms_values = []
     npu_ms_values = []
@@ -247,26 +254,29 @@ def test_flash():
 
         print(f"S1                         : {s1}")
         print(f"Causal                     : {is_causal}")
-        print(f"GFLOPs total                : {flops_total//10e9}")
+        print(f"Tile S1                    : {tile_s1}")
+        print(f"FLOPs total                : {flops_total}")
         print(
-            f"{'PTODSL flash kernel':<27}: {flash_ms:.3f} ms/iter  "
+            f"{'PTODSL flash kernel' if use_dsl else 'JIT flash kernel':<27}: {flash_ms:.3f} ms/iter  "
             f"({tflops(flops_total, flash_ms):.3f} TFLOP/s)"
         )
         print(
             f"npu_fused_infer_attention  : {npu_ms:.3f} ms/iter  "
             f"({tflops(flops_total, npu_ms):.3f} TFLOP/s)"
         )
-        # print(
-        #     f"torch reference            : {ref_ms:.3f} ms/iter  "
-        #     f"({tflops(flops_total, ref_ms):.3f} TFLOP/s)"
-        # )
+        print(
+            f"torch reference            : {ref_ms:.3f} ms/iter  "
+            f"({tflops(flops_total, ref_ms):.3f} TFLOP/s)"
+        )
         torch.testing.assert_close(o_out, o_ref, rtol=1e-3, atol=1e-3)
         print("vs torch reference: PASSED")
         torch.testing.assert_close(o_out, o_npu, rtol=1e-3, atol=1e-3)
         print("vs npu_fused_attention: PASSED")
         print("")
 
-    plot_path = Path(__file__).with_name("naive_tpush_dsl_plot.png")
+    plot_path = Path(__file__).with_name(
+        "naive_tpush_dsl_plot.png" if use_dsl else "naive_tpush_plot.png"
+    )
     plt.figure(figsize=(8, 5))
     plt.plot(s1_values, flash_tflops_values, marker="o", label="flash")
     plt.plot(s1_values, ref_tflops_values, marker="o", label="ref")
@@ -276,7 +286,8 @@ def test_flash():
     plt.xlabel("S1")
     plt.ylabel("TFLOP/s")
     plt.title(
-        f"Flash Attention ptodsl vs rest. TFLOP/s vs S1\n(S0={s0}, head={head} S1_TILE={s1_tile})"
+        f"Flash Attention (naive TPUSH/TPOP{' PTODSL non-causal' if use_dsl else ''}) "
+        f"TFLOP/s vs S1 (S0={s0}, head={head}, s1_tile={tile_s1})"
     )
     plt.grid(True, which="both", axis="both", linestyle="--", linewidth=0.5)
     plt.legend()
@@ -287,4 +298,11 @@ def test_flash():
 
 
 if __name__ == "__main__":
-    test_flash()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dsl",
+        action="store_true",
+        help="run the prebuilt non-causal PTODSL AOT variant from build_artifacts/fa_dsl.so",
+    )
+    args = parser.parse_args()
+    test_flash(use_dsl=args.dsl)
